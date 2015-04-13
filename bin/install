@@ -1,0 +1,7 @@
+#!/bin/zsh
+
+setopt err_exit # Прервать выполнение в случае ошибки
+
+cd ..
+cabal install -j
+cp .cabal-sandbox/bin/net* /usr/local/bin
