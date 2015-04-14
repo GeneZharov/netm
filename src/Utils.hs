@@ -16,22 +16,22 @@ import qualified Data.Set as S
 import System.FilePath
 import Data.List.Split
 import Data.List (intercalate)
+import System.Exit (exitFailure)
 
 
 etcDir = "/etc/netm/"           -- Каталог конфигов пользователя
 stFile = "/var/lib/netm/active" -- Status, файл с текущими соединениями
 
 
--- Получение имён конфигов из аргументов командной строки
+-- Получение имён конфигов на основе аргументов командной строки
 type Abbr = String
-argsToFiles :: IO (Either [(Abbr, [String])] (S.Set String))
+argsToFiles :: IO (S.Set String)
 argsToFiles = do
     files <- getArgs >>= mapM getFiles
-    let wired = flip filter files $ \ (_, fs) -> let l = length fs
-                                                 in l > 1 || l == 0
-    return $ if not (null wired)
-             then Left wired
-             else Right . S.fromList . map (head . snd) $ files
+    let wired = flip filter files
+              $ \ (_, fs) -> let l = length fs in l > 1 || l == 0
+    when (not $ null wired) (mapM_ reportErr wired >> exitFailure)
+    return . S.fromList . map (head . snd) $ files
     where
         -- Находит файлы подходящие под сокращение имени соединения
         getFiles :: String -> IO (String, [String])
@@ -41,6 +41,13 @@ argsToFiles = do
         toPattern :: String -> String
         toPattern = intercalate "/" . map (concatMap (:"*")) . splitOn "/"
           -- "dp/wl" -> "d*p*/w*l*" — для поиска "dolphin/wlan"
+
+        reportErr :: (Abbr, [String]) -> IO ()
+        reportErr (abbr, files)
+            | null files = putStr "No conifgs found: " >> print abbr
+            | otherwise  = do
+                putStrLn ("Non-obvious config name: " ++ abbr)
+                forM_ files $ putStrLn . (++) (replicate 2 ' ')
 
 
 loadStatus :: IO (S.Set String)

@@ -1,5 +1,4 @@
 import Utils
-import Control.Monad
 import qualified Data.Set as S
 
 
@@ -10,17 +9,8 @@ main = do
     up s n
 
 
-up :: S.Set String -> Either [(String, [String])] (S.Set String) -> IO ()
-up s (Left wired) = do
-    mapM_ reportErr wired
-    where reportErr (abbr, files)
-            | null files = putStr "No conifgs found: " >> print abbr
-            | otherwise  = do
-                putStr "Non-obvious config name: "
-                forM_ wired $ \(abbr, files) -> do
-                    putStrLn abbr
-                    forM_ files $ putStrLn . (++) (replicate 2 ' ')
-up s (Right n)
+up :: S.Set String -> S.Set String -> IO ()
+up s n
     | S.null n = do
         call "down" s
         call "up" s
