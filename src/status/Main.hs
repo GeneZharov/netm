@@ -3,6 +3,7 @@ import qualified Data.Set as S
 import Control.Monad
 
 
+main :: IO ()
 main = do
-    status <- loadStatus
-    forM_ (S.toList status) putStrLn
+    s <- loadStatus
+    forM_ (S.toList s) putStrLn

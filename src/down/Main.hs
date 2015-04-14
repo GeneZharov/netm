@@ -2,14 +2,18 @@ import Utils
 import qualified Data.Set as S
 
 
+main :: IO ()
 main = do
-    status <- loadStatus
-    new <- argsToFiles
+    s <- loadStatus
+    n <- argsToFiles -- new, новое множество имён
+    down s n
 
-    if S.null new
-    then do
+
+down :: S.Set String -> S.Set String -> IO ()
+down s n
+    | S.null n = do
         saveStatus S.empty
-        call "down" status
-    else do
-        saveStatus $ S.filter ( \f -> not (S.member f new) ) status
-        call "down" new
+        call "down" s
+    | otherwise = do
+        saveStatus $ S.filter ( \f -> not (S.member f n) ) s
+        call "down" n

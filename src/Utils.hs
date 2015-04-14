@@ -14,6 +14,8 @@ import System.IO -- Работа с файлами
 import qualified System.FilePath.Glob as G ( globDir, compile )
 import qualified Data.Set as S
 import System.FilePath
+import Data.List.Split
+import Data.List (intercalate)
 
 
 etcDir = "/etc/netm/"           -- Каталог конфигов пользователя
@@ -21,15 +23,24 @@ stFile = "/var/lib/netm/active" -- Status, файл с текущими соед
 
 
 -- Получение имён конфигов из аргументов командной строки
-argsToFiles :: IO (S.Set String)
+type Abbr = String
+argsToFiles :: IO (Either [(Abbr, [String])] (S.Set String))
 argsToFiles = do
-    args <- getArgs
-    files <- forM args (\c -> do
-            matched <- G.globDir [ G.compile (c ++ "*") ] etcDir
-            return $ head $ head $ fst matched
-            -- Извлекаю первый из подходящих файлов для 1-го принятого шаблона
-        )
-    return (S.fromList files)
+    files <- getArgs >>= mapM getFiles
+    let wired = flip filter files $ \ (_, fs) -> let l = length fs
+                                                 in l > 1 || l == 0
+    return $ if not (null wired)
+             then Left wired
+             else Right . S.fromList . map (head . snd) $ files
+    where
+        -- Находит файлы подходящие под сокращение имени соединения
+        getFiles :: String -> IO (String, [String])
+        getFiles abbr = liftM ((,) abbr . head . fst)
+                      $ G.globDir [ G.compile (toPattern abbr) ] etcDir
+        -- Формирует из сокращения имени соединения sh-шаблон для поиска файлов
+        toPattern :: String -> String
+        toPattern = intercalate "/" . map (concatMap (:"*")) . splitOn "/"
+          -- "dp/wl" -> "d*p*/w*l*" — для поиска "dolphin/wlan"
 
 
 loadStatus :: IO (S.Set String)
