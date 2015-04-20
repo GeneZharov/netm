@@ -2,6 +2,6 @@
 
 setopt err_exit # Прервать выполнение в случае ошибки
 
-cd ..
+cd $(dirname $0)/..
 cabal install -j
-cp .cabal-sandbox/bin/net* /usr/local/bin
+cp .cabal-sandbox/bin/* /usr/local/bin

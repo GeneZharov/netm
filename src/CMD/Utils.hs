@@ -8,7 +8,7 @@ module Utils
 
 
 import System.Process
-import System.Environment( getArgs )
+import System.Environment(getArgs)
 import Control.Monad
 import System.IO -- Работа с файлами
 import qualified System.FilePath.Glob as G ( globDir, compile )
@@ -39,8 +39,9 @@ argsToFiles = do
                       $ G.globDir [ G.compile (toPattern abbr) ] etcDir
         -- Формирует из сокращения имени соединения sh-шаблон для поиска файлов
         toPattern :: String -> String
-        toPattern = intercalate "/" . map (concatMap (:"*")) . splitOn "/"
-          -- "dp/wl" -> "d*p*/w*l*" — для поиска "dolphin/wlan"
+        toPattern = intercalate "/" . map (++"*") . splitOn "/"
+        --toPattern = intercalate "/" . map (concatMap (:"*")) . splitOn "/"
+          -- "do/wl" -> "do*/wl*" — сматчится на "dolphin/wlan"
 
         reportErr :: (Abbr, [String]) -> IO ()
         reportErr (abbr, files)
