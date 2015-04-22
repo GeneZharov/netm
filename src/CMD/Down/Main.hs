@@ -12,6 +12,7 @@ main = do
 down :: S.Set String -> S.Set String -> IO ()
 down s n
     | S.null n = do
+        putStrLn "Terminating all connections..."
         saveStatus S.empty
         call "down" s
     | otherwise = do

@@ -12,6 +12,7 @@ main = do
 up :: S.Set String -> S.Set String -> IO ()
 up s n
     | S.null n = do
+        putStrLn "Restarting all connections..."
         call "down" s
         call "up" s
     | otherwise = do

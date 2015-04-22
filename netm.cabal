@@ -16,12 +16,13 @@ library
   exposed-modules: Utils
   hs-source-dirs: src/CMD
   build-depends:
-    base,
-    containers >= 0.5,
-    process >= 1.2,
-    Glob >= 0.7,
-    filepath >= 1.1,
-    split >= 0.2
+      base
+    , containers >= 0.5
+    , process >= 1.2
+    , Glob >= 0.7
+    , filepath >= 1.1
+    , split >= 0.2
+    , ansi-terminal >= 0.6
 
 
 executable netu
@@ -29,11 +30,11 @@ executable netu
   hs-source-dirs: src/CMD/Up
   main-is: Main.hs
   build-depends:
-    base,
-    netm,
-    containers >= 0.5,
-    Glob >= 0.7,
-    process >= 1.2
+      base
+    , netm
+    , containers >= 0.5
+    , Glob >= 0.7
+    , process >= 1.2
 
 
 executable netd
@@ -41,11 +42,11 @@ executable netd
   hs-source-dirs: src/CMD/Down
   main-is: Main.hs
   build-depends:
-    base,
-    netm,
-    containers >= 0.5,
-    Glob>=0.7,
-    process >= 1.2
+      base
+    , netm
+    , containers >= 0.5
+    , Glob>=0.7
+    , process >= 1.2
 
 
 executable nets
@@ -53,9 +54,9 @@ executable nets
   hs-source-dirs: src/CMD/Status
   main-is: Main.hs
   build-depends:
-    base,
-    netm,
-    containers >= 0.5
+      base
+    , netm
+    , containers >= 0.5
 
 
 executable netn
@@ -63,9 +64,9 @@ executable netn
   hs-source-dirs: src/CMD/New
   main-is: Main.hs
   build-depends:
-    base,
-    netm,
-    containers >= 0.5
+      base
+    , netm
+    , containers >= 0.5
 
 
 executable wpa_daemon
@@ -74,11 +75,11 @@ executable wpa_daemon
   main-is: Main.hs
   ghc-options: -threaded
   build-depends:
-    base,
-    split >= 0.2,
-    hslogger >= 1.2,
-    unix >= 2.6,
-    process >= 1.1
+      base
+    , split >= 0.2
+    , hslogger >= 1.2
+    , unix >= 2.6
+    , process >= 1.1
 
 
 executable wpa_start
@@ -86,5 +87,5 @@ executable wpa_start
   hs-source-dirs: src/WPA/Start
   main-is: Main.hs
   build-depends:
-    base,
-    process >= 1.1
+      base
+    , process >= 1.1

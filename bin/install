@@ -2,6 +2,7 @@
 
 setopt err_exit # Прервать выполнение в случае ошибки
 
+$(dirname $0)/make
+
 cd $(dirname $0)/..
-cabal install -j
 cp .cabal-sandbox/bin/* /usr/local/bin
