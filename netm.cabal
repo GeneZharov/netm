@@ -15,7 +15,7 @@ cabal-version:       >=1.10
 library
   default-language: Haskell2010
   exposed-modules: Utils
-  hs-source-dirs: src/CMD
+  hs-source-dirs: src/Cmd
   build-depends:
       base
     , containers
@@ -28,7 +28,7 @@ library
 
 executable netu
   default-language: Haskell2010
-  hs-source-dirs: src/CMD/Up
+  hs-source-dirs: src/Cmd/Up
   main-is: Main.hs
   build-depends:
       base
@@ -40,7 +40,7 @@ executable netu
 
 executable netd
   default-language: Haskell2010
-  hs-source-dirs: src/CMD/Down
+  hs-source-dirs: src/Cmd/Down
   main-is: Main.hs
   build-depends:
       base
@@ -52,7 +52,7 @@ executable netd
 
 executable nets
   default-language: Haskell2010
-  hs-source-dirs: src/CMD/Status
+  hs-source-dirs: src/Cmd/Status
   main-is: Main.hs
   build-depends:
       base
@@ -62,7 +62,7 @@ executable nets
 
 executable netn
   default-language: Haskell2010
-  hs-source-dirs: src/CMD/New
+  hs-source-dirs: src/Cmd/New
   main-is: Main.hs
   build-depends:
       base
