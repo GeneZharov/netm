@@ -1,0 +1,92 @@
+#!/bin/zsh
+
+
+# Скрипт для управления типичными соединениями:
+#   wlan wpa static — дом, офис
+#   wlan wpa dhcp   — гостиницы
+#   wlan dhcp       — кафэшки, общественный транспорт
+#   ----
+#   eth static — эникей
+#   eth dhcp   — эникей
+#
+# Использует следующие переменные окружения:
+#   Флаги (0 или 1):
+#     WLAN — нужно ли настраивать подключение к точке доступа
+#     WPA  — используется ли wpa для подключения к точке доступа
+#     DHCP — использовать dhcp или статические настройки ip
+#   Строчные:
+#     IFACE — название сетевого интерфейса (например wlan0)
+#     WPA_CONF — путь к конфигу wpa_supplicant
+#     SSID
+#     ADDR, MASK, GATE — настройки ip
+
+
+source $(dirname $0)/utils.sh
+
+wpa_sock=/var/run/wpa_supplicant/$IFACE
+
+
+function up {
+  setopt err_exit # Прервать выполнение в случае ошибки
+  #setopt xtrace   # Выводить исполняемые команды
+
+  # Network interface
+  try ip link set up dev $IFACE
+
+  # Carrier
+  if (( WLAN )) {
+    if (( WPA )) {
+      meta Starting wpa_supplicant
+      mkdir -p $(dirname $wpa_sock)
+      wpa_start -D nl80211 -g $wpa_sock -i $IFACE -c $WPA_CONF
+    } else {
+      try iw $IFACE connect -w $SSID
+    }
+  }
+
+  # IP
+  if (( DHCP )) {
+    meta Starting dhcpcd
+    dhcpcd $IFACE
+  } else {
+    try ip address add dev $IFACE $ADDR/$MASK
+    try ip route add default via $GATE dev $IFACE
+    echo "nameserver $GATE" > /etc/resolv.conf
+  }
+
+  test_connection
+
+}
+
+
+function down {
+  #setopt xtrace # Выводить исполняемые команды
+
+  # IP
+  if (( DHCP )) {
+    meta Terminating dhcpcd
+    dhcpcd --exit $IFACE
+  } else {
+    try ip route delete default via $GATE dev $IFACE
+    try ip address delete $ADDR/$MASK dev $IFACE
+    sed --in-place "/$GATE/d" /etc/resolv.conf
+  }
+
+  # Carrier
+  if (( WLAN )) {
+    if (( WPA )) {
+      meta Terminating wpa_supplicant
+      wpa_cli -g $wpa_sock terminate
+      rmdir $(dirname $wpa_sock) &> /dev/null
+    } else {
+      try iw $IFACE disconnect
+    }
+  }
+
+  # Network interface
+  try ip link set down dev $IFACE
+
+}
+
+
+$*  # Запуск запрашиваемой функции с передачей параметров

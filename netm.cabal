@@ -1,9 +1,9 @@
 name:                netm
 version:             0.1.0
 synopsis:            ...
-license:             BSD3
+license:             MIT
 license-file:        LICENSE
-author:              Keilys
+author:              Yevgeny Zharov
 maintainer:          krantadan@mail.ru
 category:            Network
 build-type:          Simple
@@ -11,18 +11,19 @@ extra-source-files:  README.nt
 cabal-version:       >=1.10
 
 
+-- FIXME: Зачем я собираю библиотеку?
 library
   default-language: Haskell2010
   exposed-modules: Utils
   hs-source-dirs: src/CMD
   build-depends:
       base
-    , containers >= 0.5
+    , containers
     , process >= 1.2
-    , Glob >= 0.7
-    , filepath >= 1.1
-    , split >= 0.2
-    , ansi-terminal >= 0.6
+    , Glob
+    , filepath
+    , split
+    , ansi-terminal
 
 
 executable netu
@@ -32,9 +33,9 @@ executable netu
   build-depends:
       base
     , netm
-    , containers >= 0.5
-    , Glob >= 0.7
-    , process >= 1.2
+    , containers
+    , Glob
+    , process
 
 
 executable netd
@@ -44,9 +45,9 @@ executable netd
   build-depends:
       base
     , netm
-    , containers >= 0.5
-    , Glob>=0.7
-    , process >= 1.2
+    , containers
+    , Glob
+    , process
 
 
 executable nets
@@ -56,7 +57,7 @@ executable nets
   build-depends:
       base
     , netm
-    , containers >= 0.5
+    , containers
 
 
 executable netn
@@ -66,7 +67,7 @@ executable netn
   build-depends:
       base
     , netm
-    , containers >= 0.5
+    , containers
 
 
 executable wpa_daemon
@@ -76,9 +77,9 @@ executable wpa_daemon
   ghc-options: -threaded
   build-depends:
       base
-    , split >= 0.2
-    , hslogger >= 1.2
-    , unix >= 2.6
+    , split
+    , hslogger
+    , unix
     , process >= 1.1
 
 
@@ -88,4 +89,13 @@ executable wpa_start
   main-is: Main.hs
   build-depends:
       base
-    , process >= 1.1
+    , process
+
+
+executable try
+  default-language: Haskell2010
+  hs-source-dirs: src/Try
+  main-is: Main.hs
+  build-depends:
+      base
+    , process

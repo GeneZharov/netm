@@ -2,9 +2,14 @@
 
 setopt err_exit # Прервать выполнение в случае ошибки
 root=$(dirname $(readlink -f $0))/..
-#cd /var/lib/stow/_pkg
-cd /usr/local/stow
 
+cp -r $root/fs/* /
+
+# Переустановка stow-пакета
+# =========================
+
+cabal install
+cd /usr/local/stow
 
 # Удаление старого пакета
 if [[ -d netm ]] {
@@ -13,7 +18,6 @@ if [[ -d netm ]] {
 }
 
 # Создание файлов stow-пакета
-$root/bin/make
 mkdir netm
 cp -r $root/.cabal-sandbox/bin netm
 

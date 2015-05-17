@@ -1,3 +1,4 @@
+*.bak
 bak
 dist
 cabal.sandbox.config
