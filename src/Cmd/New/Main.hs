@@ -7,7 +7,7 @@ import System.IO (hPutStrLn, stderr)
 main :: IO ()
 main = do
     s <- loadStatus
-    n <- argsToFiles -- new, новое множество имён
+    (_, n) <- parseArgs -- n — это new, новое множество имён
     new s n
 
 

@@ -36,6 +36,7 @@ executable netu
     , containers
     , Glob
     , process
+    , silently
 
 
 executable netd
@@ -48,6 +49,7 @@ executable netd
     , containers
     , Glob
     , process
+    , silently
 
 
 executable nets

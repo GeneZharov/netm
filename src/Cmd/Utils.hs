@@ -1,6 +1,6 @@
 module Utils
    (
-     argsToFiles
+     parseArgs
    , loadStatus
    , saveStatus
    , call
@@ -15,7 +15,7 @@ import qualified System.FilePath.Glob as G ( globDir, compile )
 import qualified Data.Set as S
 import System.FilePath
 import Data.List.Split
-import Data.List (intercalate, stripPrefix)
+import Data.List (intercalate, stripPrefix, isPrefixOf)
 import System.Exit (exitFailure)
 import Text.Printf
 import System.Console.ANSI -- для цветного вывода
@@ -26,32 +26,41 @@ etcDir = "/etc/netm/"           -- Каталог конфигов пользо�
 stFile = "/var/lib/netm/active" -- Status, файл с текущими соединениями
 
 
--- Получение имён конфигов на основе аргументов командной строки
-type Abbr = String
-argsToFiles :: IO (S.Set String)
-argsToFiles = do
+-- Извлечение опций и имён конфигов из аргументов командной строки
+parseArgs :: IO (S.Set String, S.Set String)
+parseArgs = do
 
-    files <- getArgs >>= mapM getFiles
-    let wired = flip filter files
-              $ \ (_, fs) -> let l = length fs in l > 1 || l == 0
-    unless (null wired) (mapM_ reportErr wired >> exitFailure)
-    return . S.fromList . map (head . snd) $ files
+    args <- getArgs
+    let (opts, files) = span (isPrefixOf "-") args
+    files' <- argsToFiles files
+    return (S.fromList opts, files')
 
     where
 
-        -- Находит файлы подходящие под сокращение имени соединения
+        -- Получение имён конфигов на основе аргументов командной строки
+        argsToFiles :: [String] -> IO (S.Set String)
+        argsToFiles files = do
+
+            files <- mapM getFiles files
+            let wired = flip filter files
+                      $ \ (_, fs) -> let l = length fs in l > 1 || l == 0
+            unless (null wired) (mapM_ reportErr wired >> exitFailure)
+            return . S.fromList . map (head . snd) $ files
+
+        -- Находит файлы подходящие под сокращение имени конфига
+        getFiles :: String -> IO (String, [String])
         getFiles abbr = do
             files <- liftM (head . fst)
                        $ G.globDir [ G.compile (toPattern abbr) ] etcDir
             let names = map (fromJust . stripPrefix etcDir) files
             return (abbr, names)
 
-        -- Формирует из сокращения имени соединения sh-шаблон для поиска файлов
+        -- Формирует из сокращения имени конфига sh-шаблон для поиска файлов
         toPattern :: String -> String
         toPattern = intercalate "/" . map (++"*") . splitOn "/"
           -- "do/wl" -> "do*/wl*" — сматчится на "dolphin/wlan"
 
-        reportErr :: (Abbr, [String]) -> IO ()
+        reportErr :: (String, [String]) -> IO ()
         reportErr (abbr, files)
             | null files = putStr "No conifgs found: " >> print abbr
             | otherwise  = do

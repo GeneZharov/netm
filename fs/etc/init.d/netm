@@ -1,0 +1,24 @@
+#!/sbin/runscript
+
+name="netm"
+
+depend()
+{
+	provide net
+	need localmount
+	use logger network
+	after bootmisc modules
+	before dns
+}
+
+start() {
+	ebegin "Starting netm"
+	netu --quiet --resume
+	eend $?
+}
+
+stop() {
+	ebegin "Stopping netm"
+	netd --quiet --suspend
+	eend $?
+}
