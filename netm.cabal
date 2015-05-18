@@ -11,7 +11,6 @@ extra-source-files:  README.nt
 cabal-version:       >=1.10
 
 
--- FIXME: Зачем я собираю библиотеку?
 library
   default-language: Haskell2010
   exposed-modules: Utils
@@ -24,6 +23,7 @@ library
     , filepath
     , split
     , ansi-terminal
+    , directory
 
 
 executable netu

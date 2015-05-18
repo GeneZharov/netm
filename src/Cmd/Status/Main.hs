@@ -1,6 +1,7 @@
-import Utils
 import qualified Data.Set as S
 import Control.Monad
+
+import Utils
 
 
 main :: IO ()

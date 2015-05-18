@@ -8,10 +8,10 @@ module Utils
 
 
 import System.Process
-import System.Environment(getArgs)
+import System.Environment (getArgs)
 import Control.Monad
-import System.IO -- Работа с файлами
-import qualified System.FilePath.Glob as G ( globDir, compile )
+import System.IO -- работа с файлами
+import qualified System.FilePath.Glob as G
 import qualified Data.Set as S
 import System.FilePath
 import Data.List.Split
@@ -20,10 +20,11 @@ import System.Exit (exitFailure)
 import Text.Printf
 import System.Console.ANSI -- для цветного вывода
 import Data.Maybe (fromJust)
+import System.Directory (getPermissions, executable)
 
 
-etcDir = "/etc/netm/"           -- Каталог конфигов пользователя
-stFile = "/var/lib/netm/active" -- Status, файл с текущими соединениями
+etcDir = "/etc/netm/"           -- каталог конфигов пользователя
+stFile = "/var/lib/netm/active" -- status, файл с текущими соединениями
 
 
 -- Извлечение опций и имён конфигов из аргументов командной строки
@@ -50,15 +51,33 @@ parseArgs = do
         -- Находит файлы подходящие под сокращение имени конфига
         getFiles :: String -> IO (String, [String])
         getFiles abbr = do
-            files <- liftM (head . fst)
-                       $ G.globDir [ G.compile (toPattern abbr) ] etcDir
-            let names = map (fromJust . stripPrefix etcDir) files
+            files <- globDir abbr
+            scripts <- filterM isScript files
+            let names = map (fromJust . stripPrefix etcDir) scripts
             return (abbr, names)
+            where
 
-        -- Формирует из сокращения имени конфига sh-шаблон для поиска файлов
-        toPattern :: String -> String
-        toPattern = intercalate "/" . map (++"*") . splitOn "/"
-          -- "do/wl" -> "do*/wl*" — сматчится на "dolphin/wlan"
+                -- Находит файлы, удовлетворяющие аббревиатуре конфига
+                globDir :: String -> IO [FilePath]
+                globDir abbr =
+                    liftM (head . fst) -- совпавшие имена для первого шаблона
+                    $ G.globDirWith
+                        G.MatchOptions {
+                              G.ignoreCase = True
+                            , G.matchDotsImplicitly = False
+                            , G.ignoreDotSlash = False
+                            }
+                        [ G.compile (toPattern abbr) ]
+                        etcDir
+
+                -- Является ли файл не каталогом и исполняемым
+                isScript :: FilePath -> IO Bool
+                isScript f =  liftM executable (getPermissions f)
+
+                -- Сокращение имени конфига -> sh-шаблон для поиска файлов
+                toPattern :: String -> String
+                toPattern = intercalate "/" . map (++"*") . splitOn "/"
+                  -- "do/wl" -> "do*/wl*" — сматчится на "dolphin/wlan"
 
         reportErr :: (String, [String]) -> IO ()
         reportErr (abbr, files)

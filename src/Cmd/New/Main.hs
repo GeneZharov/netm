@@ -1,7 +1,8 @@
 import System.Exit
-import Utils
 import qualified Data.Set as S
 import System.IO (hPutStrLn, stderr)
+
+import Utils
 
 
 main :: IO ()
