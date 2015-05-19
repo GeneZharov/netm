@@ -2,6 +2,7 @@ import System.Environment (getArgs)
 import System.Process
 import System.IO
 import Data.List (isInfixOf)
+import Control.Monad (unless)
 
 
 desired = "CTRL-EVENT-CONNECTED"
@@ -11,20 +12,23 @@ desired = "CTRL-EVENT-CONNECTED"
 main :: IO ()
 main = do
     args <- getArgs
-    (_, o, _, _) <- runInteractiveProcess "wpa_daemon" args Nothing Nothing
+    let (quiet, args') = if head args == "--quiet"
+                         then (True, tail args)
+                         else (False, args)
+    (_, o, _, _) <- runInteractiveProcess "wpa_daemon" args' Nothing Nothing
     hSetBinaryMode o False
     hSetBuffering o NoBuffering
-    showOutput o
+    parseLine quiet o
 
 
-showOutput :: Handle -> IO ()
-showOutput o = do
+parseLine :: Bool -> Handle -> IO ()
+parseLine quiet o = do
     eof <- hIsEOF o
     if eof
     then hPutStrLn stderr "Daemon unexpectally terminated"
     else do
         s <- hGetLine o
-        putStrLn s
+        unless quiet (putStrLn s)
         if desired `isInfixOf` s
-        then putStrLn "Going to background..."
-        else showOutput o
+        then putStrLn "Going to background"
+        else parseLine quiet o

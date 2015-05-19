@@ -38,7 +38,7 @@ function up {
     if (( WPA )) {
       meta Starting wpa_supplicant
       mkdir -p $(dirname $wpa_sock)
-      wpa_start -D nl80211 -g $wpa_sock -i $IFACE -c $WPA_CONF
+      wpa_start --quiet -d -D nl80211 -g $wpa_sock -i $IFACE -c $WPA_CONF
     } else {
       try iw $IFACE connect -w $SSID
     }
