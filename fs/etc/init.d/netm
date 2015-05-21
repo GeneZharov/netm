@@ -13,12 +13,12 @@ depend()
 
 start() {
 	ebegin "Starting netm"
-	netu --quiet --resume
+	netu --resume --quiet --timeout=30
 	eend $?
 }
 
 stop() {
 	ebegin "Stopping netm"
-	netd --quiet --suspend
+	netd --suspend --quiet --timeout=30
 	eend $?
 }

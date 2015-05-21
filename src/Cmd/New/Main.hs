@@ -8,7 +8,7 @@ import Utils
 main :: IO ()
 main = do
     s <- loadStatus
-    (_, n) <- parseArgs -- n — это new, новое множество имён
+    (_, n) <- parseArgs [] -- n — это new, новое множество имён
     new s n
 
 
@@ -17,6 +17,6 @@ new s n | S.null n = do
             hPutStrLn stderr "Required connection names"
             exitFailure
         | otherwise = do
-              saveStatus n
-              call "down" s
-              call "up" n
+            saveStatus n
+            call (-1) "down" s
+            call (-1) "up" n

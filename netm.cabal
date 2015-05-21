@@ -24,6 +24,7 @@ library
     , split
     , ansi-terminal
     , directory
+    , async
 
 
 executable netu

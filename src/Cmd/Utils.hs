@@ -1,15 +1,10 @@
-module Utils
-   (
-     parseArgs
-   , loadStatus
-   , saveStatus
-   , call
-   ) where
+module Utils where
 
 
 import System.Process
 import System.Environment (getArgs)
 import Control.Monad
+import Control.Arrow
 import System.IO -- работа с файлами
 import qualified System.FilePath.Glob as G
 import qualified Data.Set as S
@@ -19,8 +14,11 @@ import Data.List (intercalate, stripPrefix, isPrefixOf)
 import System.Exit (exitFailure)
 import Text.Printf
 import System.Console.ANSI -- для цветного вывода
-import Data.Maybe (fromJust)
+import Data.Maybe (fromJust, isNothing)
 import System.Directory (getPermissions, executable)
+import System.Console.GetOpt
+import Control.Concurrent (threadDelay)
+import Control.Concurrent.Async as A (race)
 
 
 etcDir = "/etc/netm/"           -- каталог конфигов пользователя
@@ -28,13 +26,20 @@ stFile = "/var/lib/netm/active" -- status, файл с текущими соед
 
 
 -- Извлечение опций и имён конфигов из аргументов командной строки
-parseArgs :: IO (S.Set String, S.Set String)
-parseArgs = do
+--parseArgs :: [OptDescr _] -> IO ([_], S.Set String)
+-- TODO: -XPartialTypeSignatures доступна только в ghc-7.10
+parseArgs options = do
 
-    args <- getArgs
-    let (opts, files) = span (isPrefixOf "-") args
+    -- Разбор опций командной строки
+    argv <- getArgs
+    (opts,files) <- case getOpt RequireOrder options argv of
+                      (o,n,[]  ) -> return (o,n)
+                      (_,_,errs) -> ioError $ userError (concat errs)
+
+    -- Формирование имён конфигов
     files' <- argsToFiles files
-    return (S.fromList opts, files')
+
+    return (opts, files')
 
     where
 
@@ -98,22 +103,34 @@ saveStatus status = withFile stFile WriteMode $
 
 
 -- Запускает множество пользовательских конфигов с заданной командой
-call :: String -> S.Set String -> IO ()
-call cmd files = forM_ (S.toList files) $ \ f -> do
-    printHeader $ printf "Executing: %s %s" f cmd
-    makeProcess f >>= wait
+call :: Int -> String -> S.Set String -> IO ()
+call timeout action files = forM_ (S.toList files) $ \ f -> do
+    let cmd = unwords [ f, action ]
+    printHeader $ printf ("Executing: " ++ cmd)
+    A.race (threadDelay $ 1000 * timeout) (makeProcess f >>= wait)
+        >>= (isLeft >>> flip when (scriptTimeout cmd))
+    --T.timeout (1 * 10^6) (makeProcess f >>= wait)
+    --T.timeout 1 (makeProcess f >>= wait)
+    --      >>= (isNothing >>> flip when (scriptTimeout cmd))
 
-    where printHeader text = do
-              setSGR [ SetColor Foreground Dull Green ]
-              putStrLn ('\n':text)
-              putStr $ replicate (length text) '━'
-              setSGR [ Reset ] >> putStrLn ""
+    where
 
-          makeProcess f = let f' = etcDir ++ f
-                          in createProcess (proc f' [cmd])
-                              {
-                                  cwd = Just (dropFileName f')
-                              ,   delegate_ctlc = True
-                              }
+        isLeft (Left _) = True
+        isLeft _        = False
 
-          wait (_, _, _, h) = waitForProcess h
+        scriptTimeout cmd = hPutStrLn stderr ("User script timeout: " ++ cmd)
+
+        printHeader text = do
+            setSGR [ SetColor Foreground Dull Green ]
+            putStrLn ('\n':text)
+            putStr $ replicate (length text) '━'
+            setSGR [ Reset ] >> putStrLn ""
+
+        makeProcess f = let f' = etcDir ++ f
+                        in createProcess (proc f' [action])
+                            {
+                                cwd = Just (dropFileName f')
+                            ,   delegate_ctlc = True
+                            }
+
+        wait (_, _, _, h) = waitForProcess h
