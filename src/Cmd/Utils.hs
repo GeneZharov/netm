@@ -4,21 +4,18 @@ module Utils where
 import System.Process
 import System.Environment (getArgs)
 import Control.Monad
-import Control.Arrow
 import System.IO -- работа с файлами
 import qualified System.FilePath.Glob as G
 import qualified Data.Set as S
 import System.FilePath
 import Data.List.Split
 import Data.List (intercalate, stripPrefix, isPrefixOf)
-import System.Exit (exitFailure)
 import Text.Printf
 import System.Console.ANSI -- для цветного вывода
-import Data.Maybe (fromJust, isNothing)
+import Data.Maybe (fromJust)
 import System.Directory (getPermissions, executable)
 import System.Console.GetOpt
-import Control.Concurrent (threadDelay)
-import Control.Concurrent.Async as A (race)
+import System.Exit
 
 
 etcDir = "/etc/netm/"           -- каталог конфигов пользователя
@@ -103,34 +100,38 @@ saveStatus status = withFile stFile WriteMode $
 
 
 -- Запускает множество пользовательских конфигов с заданной командой
-call :: Int -> String -> S.Set String -> IO ()
-call timeout action files = forM_ (S.toList files) $ \ f -> do
-    let cmd = unwords [ f, action ]
-    printHeader $ printf ("Executing: " ++ cmd)
-    A.race (threadDelay $ 1000 * timeout) (makeProcess f >>= wait)
-        >>= (isLeft >>> flip when (scriptTimeout cmd))
-    --T.timeout (1 * 10^6) (makeProcess f >>= wait)
-    --T.timeout 1 (makeProcess f >>= wait)
-    --      >>= (isNothing >>> flip when (scriptTimeout cmd))
+type Timeout = Int
+call :: Timeout -> String -> S.Set String -> IO ()
+call t action files =
 
-    where
+   forM_ (S.toList files) $ \ f -> do
+      let cmd = unwords [ f, action ]
+      printHeader $ printf ("Executing: " ++ cmd)
+      runScript t f >>= showError cmd
 
-        isLeft (Left _) = True
-        isLeft _        = False
+   where
 
-        scriptTimeout cmd = hPutStrLn stderr ("User script timeout: " ++ cmd)
+      printHeader :: String -> IO ()
+      printHeader text = do
+         setSGR [ SetColor Foreground Dull Green ]
+         putStrLn ('\n':text)
+         putStr $ replicate (length text) '━'
+         setSGR [ Reset ] >> putStrLn ""
 
-        printHeader text = do
-            setSGR [ SetColor Foreground Dull Green ]
-            putStrLn ('\n':text)
-            putStr $ replicate (length text) '━'
-            setSGR [ Reset ] >> putStrLn ""
+      runScript :: Int -> FilePath -> IO ExitCode
+      runScript t f =
+         let f' = etcDir ++ f
+             cmd = printf "timeout %d %s %s" t f' action
+         in do
+            (_,_,_,p) <- createProcess (shell cmd)
+              { cwd = Just (dropFileName f')
+              , delegate_ctlc = True
+              }
+            waitForProcess p
 
-        makeProcess f = let f' = etcDir ++ f
-                        in createProcess (proc f' [action])
-                            {
-                                cwd = Just (dropFileName f')
-                            ,   delegate_ctlc = True
-                            }
-
-        wait (_, _, _, h) = waitForProcess h
+      showError :: String -> ExitCode -> IO ()
+      showError cmd ExitSuccess = return ()
+      showError cmd (ExitFailure e)
+        | e == 124 || e == 128+9  = echo $ printf "User script timeout: %s" cmd
+        | otherwise = echo $ printf "User script error (%d): %s" e cmd
+        where echo = hPutStrLn stderr

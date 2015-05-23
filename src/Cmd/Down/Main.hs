@@ -20,23 +20,26 @@ options =
 
 main :: IO ()
 main = do
-    s <- loadStatus
-    (o, n) <- parseArgs options -- n — это new, новое множество имён
-    verbosity o $ down (getTimeout o) (Suspend `elem` o) s n
-    where verbosity o = if Quiet `elem` o then silence else id
-          -- Формирует время ожидания на основе списка опций
-          getTimeout :: [Option] -> Int
-          getTimeout (Timeout t:os) = t
-          getTimeout (_:os)         = getTimeout os
-          getTimeout []             = -1
+
+   s <- loadStatus
+   (o, n) <- parseArgs options -- n — это new, новое множество имён
+   verbosity o $ down (getTimeout o) (Suspend `elem` o) s n
+
+   where verbosity o = if Quiet `elem` o then silence else id
+
+         -- Формирует время ожидания на основе списка опций
+         getTimeout :: [Option] -> Int
+         getTimeout (Timeout t:os) = t
+         getTimeout (_:os)         = getTimeout os
+         getTimeout []             = 120 -- по умолчанию 2 минуты
 
 
 down :: Int -> Bool -> S.Set String -> S.Set String -> IO ()
 down timeout suspend s n
-    | S.null n = do
-        putStrLn "Terminating all connections..."
-        unless suspend (saveStatus S.empty)
-        call timeout "down" s
-    | otherwise = do
-        saveStatus $ S.filter ( \f -> not (S.member f n) ) s
-        call timeout "down" n
+  | S.null n = do
+      putStrLn "Terminating all connections..."
+      unless suspend (saveStatus S.empty)
+      call timeout "down" s
+  | otherwise = do
+      saveStatus $ S.filter ( \f -> not (S.member f n) ) s
+      call timeout "down" n
