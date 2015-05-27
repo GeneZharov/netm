@@ -16,6 +16,8 @@ import Data.Maybe (fromJust)
 import System.Directory (getPermissions, executable)
 import System.Console.GetOpt
 import System.Exit
+import Control.Monad.Trans.State
+import Control.Monad.IO.Class (liftIO)
 
 
 etcDir = "/etc/netm/"           -- каталог конфигов пользователя
@@ -23,8 +25,7 @@ stFile = "/var/lib/netm/active" -- status, файл с текущими соед
 
 
 -- Извлечение опций и имён конфигов из аргументов командной строки
---parseArgs :: [OptDescr _] -> IO ([_], S.Set String)
--- TODO: -XPartialTypeSignatures доступна только в ghc-7.10
+parseArgs :: [OptDescr a] -> IO ([a], S.Set String)
 parseArgs options = do
 
     -- Разбор опций командной строки
@@ -100,38 +101,40 @@ saveStatus status = withFile stFile WriteMode $
 
 
 -- Запускает множество пользовательских конфигов с заданной командой
-type Timeout = Int
-call :: Timeout -> String -> S.Set String -> IO ()
-call t action files =
+--call :: Int -> String -> S.Set FilePath -> State Bool ()
+call timeout action files =
 
-   forM_ (S.toList files) $ \ f -> do
-      let cmd = unwords [ f, action ]
-      printHeader $ printf ("Executing: " ++ cmd)
-      runScript t f >>= showError cmd
+   liftIO callIO >>= modify . (||)
 
    where
 
-      printHeader :: String -> IO ()
-      printHeader text = do
-         setSGR [ SetColor Foreground Dull Green ]
-         putStrLn ('\n':text)
-         putStr $ replicate (length text) '━'
-         setSGR [ Reset ] >> putStrLn ""
+     callIO :: IO Bool
+     callIO = liftM or . forM (S.toList files) $ \ f -> do
+        let cmd = unwords [ f, action ]
+        printHeader $ printf ("Executing: " ++ cmd)
+        runScript timeout f >>= handleError cmd
 
-      runScript :: Int -> FilePath -> IO ExitCode
-      runScript t f =
-         let f' = etcDir ++ f
-             cmd = printf "timeout %d %s %s" t f' action
-         in do
-            (_,_,_,p) <- createProcess (shell cmd)
-              { cwd = Just (dropFileName f')
-              , delegate_ctlc = True
-              }
-            waitForProcess p
+     printHeader :: String -> IO ()
+     printHeader text = do
+        setSGR [ SetColor Foreground Dull Green ]
+        putStrLn ('\n':text)
+        putStr $ replicate (length text) '━'
+        setSGR [ Reset ] >> putStrLn ""
 
-      showError :: String -> ExitCode -> IO ()
-      showError cmd ExitSuccess = return ()
-      showError cmd (ExitFailure e)
-        | e == 124 || e == 128+9  = echo $ printf "User script timeout: %s" cmd
-        | otherwise = echo $ printf "User script error (%d): %s" e cmd
-        where echo = hPutStrLn stderr
+     runScript :: Int -> FilePath -> IO ExitCode
+     runScript timeout f =
+        let f' = etcDir ++ f
+            cmd = printf "timeout %d %s %s" timeout f' action
+        in do
+           (_,_,_,p) <- createProcess (shell cmd)
+             { cwd = Just (dropFileName f')
+             , delegate_ctlc = True
+             }
+           waitForProcess p
+
+     handleError :: String -> ExitCode -> IO Bool
+     handleError cmd ExitSuccess = return False
+     handleError cmd (ExitFailure e)
+       | e == 124 || e == 128+9 = report $ printf "User script timeout: %s" cmd
+       | otherwise = report $ printf "User script error (%d): %s" e cmd
+       where report msg = hPutStrLn stderr msg >> return True

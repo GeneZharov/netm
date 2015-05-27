@@ -7,4 +7,4 @@ import Utils
 main :: IO ()
 main = do
     s <- loadStatus
-    forM_ (S.toList s) putStrLn
+    mapM_ putStrLn (S.toList s)

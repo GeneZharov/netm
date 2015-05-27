@@ -24,6 +24,7 @@ library
     , split
     , ansi-terminal
     , directory
+    , transformers
 
 
 executable netu
@@ -37,6 +38,7 @@ executable netu
     , Glob
     , process
     , silently
+    , transformers
 
 
 executable netd
@@ -50,6 +52,7 @@ executable netd
     , Glob
     , process
     , silently
+    , transformers
 
 
 executable nets
@@ -70,6 +73,7 @@ executable netn
       base
     , netm
     , containers
+    , transformers
 
 
 executable wpa_daemon
