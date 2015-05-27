@@ -43,10 +43,12 @@ main = do
 -- В состоянии флаг, показывающий была ли ошибка в запуске какого-либо конфига
 up :: Int -> Bool -> S.Set FilePath -> S.Set FilePath -> StateT Bool IO ()
 up timeout resume s n
-  | S.null n = do
-      liftIO $ putStrLn "Restarting all connections..."
-      unless resume (call timeout "down" s)
-      call timeout "up" s
+  | S.null n = if S.null s
+               then liftIO $ putStrLn "Nothing to restart"
+               else do
+                    liftIO $ putStrLn "Restarting all connections..."
+                    unless resume (call timeout "down" s)
+                    call timeout "up" s
   | otherwise = do
       liftIO $ saveStatus (S.union s n)
       call timeout "down" (S.intersection s n)
