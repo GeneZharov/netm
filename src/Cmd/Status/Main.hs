@@ -6,5 +6,5 @@ import Utils
 
 main :: IO ()
 main = do
-    s <- loadStatus
-    mapM_ putStrLn (S.toList s)
+    st <- loadStatus
+    mapM_ putStrLn (S.toList st)

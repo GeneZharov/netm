@@ -25,6 +25,7 @@ library
     , ansi-terminal
     , directory
     , transformers
+    , silently
 
 
 executable netu
@@ -37,7 +38,6 @@ executable netu
     , containers
     , Glob
     , process
-    , silently
     , transformers
 
 
@@ -51,7 +51,6 @@ executable netd
     , containers
     , Glob
     , process
-    , silently
     , transformers
 
 

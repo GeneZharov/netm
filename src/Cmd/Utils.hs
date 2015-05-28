@@ -18,21 +18,25 @@ import System.Console.GetOpt
 import System.Exit
 import Control.Monad.Trans.State
 import Control.Monad.IO.Class (liftIO)
+import System.IO.Silently (silence)
 
 
 etcDir = "/etc/netm/"           -- каталог конфигов пользователя
 stFile = "/var/lib/netm/active" -- status, файл с текущими соединениями
 
 
+data Option = Quiet | Timeout Int | Suspend | Resume deriving (Eq, Show)
+
+
 -- Извлечение опций и имён конфигов из аргументов командной строки
-parseArgs :: [OptDescr a] -> IO ([a], S.Set String)
-parseArgs options = do
+parseArgs :: String -> [OptDescr a] -> IO ([a], S.Set String)
+parseArgs usage options = do
 
     -- Разбор опций командной строки
     argv <- getArgs
     (opts,files) <- case getOpt RequireOrder options argv of
-                      (o,n,[]  ) -> return (o,n)
-                      (_,_,errs) -> ioError $ userError (concat errs)
+      (o,n,[]  ) -> return (o,n)
+      (_,_,errs) -> ioError $ userError (concat errs ++ usageInfo usage options)
 
     -- Формирование имён конфигов
     files' <- argsToFiles files
@@ -101,8 +105,8 @@ saveStatus status = withFile stFile WriteMode $
 
 
 -- Запускает множество пользовательских конфигов с заданной командой
---call :: Int -> String -> S.Set FilePath -> State Bool ()
-call timeout action files =
+--runConfigs :: Int -> String -> S.Set FilePath -> State Bool ()
+runConfigs timeout action files =
 
    liftIO callIO >>= modify . (||)
 
@@ -112,7 +116,7 @@ call timeout action files =
      callIO = liftM or . forM (S.toList files) $ \ f -> do
         let cmd = unwords [ f, action ]
         printHeader $ printf ("Executing: " ++ cmd)
-        runScript timeout f >>= handleError cmd
+        execute timeout f >>= handleError cmd
 
      printHeader :: String -> IO ()
      printHeader text = do
@@ -121,10 +125,10 @@ call timeout action files =
         putStr $ replicate (length text) '━'
         setSGR [ Reset ] >> putStrLn ""
 
-     runScript :: Int -> FilePath -> IO ExitCode
-     runScript timeout f =
+     execute :: Int -> FilePath -> IO ExitCode
+     execute timeout f =
         let f' = etcDir ++ f
-            cmd = printf "timeout %d %s %s" timeout f' action
+            cmd = printf "timeout --foreground %d %s %s" timeout f' action
         in do
            (_,_,_,p) <- createProcess (shell cmd)
              { cwd = Just (dropFileName f')
@@ -138,3 +142,29 @@ call timeout action files =
        | e == 124 || e == 128+9 = report $ printf "User script timeout: %s" cmd
        | otherwise = report $ printf "User script error (%d): %s" e cmd
        where report msg = hPutStrLn stderr msg >> return True
+
+
+-- Запускает пользовательскую функцию, передавая в неё опции запуска, 
+-- запрашиваемые соединения, текущие соединения
+inEnv :: String
+      -> [OptDescr Option]
+      -> ( [Option] -> S.Set String -> S.Set String -> StateT Bool IO () )
+      -> IO ()
+inEnv usage opts cmd = do
+   st           <- loadStatus
+   (opts', new) <- parseArgs usage opts
+   (_, err)     <- verbosity opts'
+                 $ flip runStateT False
+                 $ cmd opts' new st
+   when err $ exitWith (ExitFailure 2)
+
+   where verbosity opts = if Quiet `elem` opts
+                          then silence
+                          else id
+
+
+-- Формирует время ожидания на основе списка опций
+getTimeout :: [Option] -> Int
+getTimeout (Timeout t:os) = t
+getTimeout (_:os)         = getTimeout os
+getTimeout []             = 120 -- по умолчанию 2 минуты

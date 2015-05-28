@@ -1,7 +1,5 @@
-import Control.Monad (when, unless)
-import System.Exit
+import Control.Monad (unless)
 import qualified Data.Set as S
-import System.IO.Silently (silence)
 import System.Console.GetOpt
 import Control.Monad.Trans.State
 import Control.Monad.IO.Class (liftIO)
@@ -9,9 +7,10 @@ import Control.Monad.IO.Class (liftIO)
 import Utils
 
 
-data Option = Suspend | Quiet | Timeout Int deriving (Eq, Show)
-options :: [OptDescr Option]
-options =
+usage = "Usage: netd [OPTION...] [files...]"
+
+opts :: [OptDescr Option]
+opts =
   [ Option "s" ["suspend"] (NoArg Suspend)
      "Сохранить состояние"
   , Option "q" ["quiet"]   (NoArg Quiet)
@@ -22,30 +21,18 @@ options =
 
 
 main :: IO ()
-main = do
-
-   s <- loadStatus
-   (o, n) <- parseArgs options -- n — это new, новое множество имён
-   (_, err) <- verbosity o
-             $ flip runStateT False
-             $ down (getTimeout o) (Suspend `elem` o) s n
-   when err $ exitWith (ExitFailure 2)
-
-   where verbosity o = if Quiet `elem` o then silence else id
-
-         -- Формирует время ожидания на основе списка опций
-         getTimeout :: [Option] -> Int
-         getTimeout (Timeout t:os) = t
-         getTimeout (_:os)         = getTimeout os
-         getTimeout []             = 120 -- по умолчанию 2 минуты
+main = inEnv usage opts $ \ opts req st
+                         -> down (getTimeout opts) (Suspend `elem` opts) st req
 
 
 down :: Int -> Bool -> S.Set FilePath -> S.Set FilePath -> StateT Bool IO ()
-down timeout suspend s n
-  | S.null n = do
-      liftIO $ putStrLn "Terminating all connections..."
-      liftIO $ unless suspend (saveStatus S.empty)
-      call timeout "down" s
+down timeout suspend st req
+  | S.null req = if S.null st
+                 then liftIO $ putStrLn "Nothing to shut down"
+                 else do
+                      liftIO $ putStrLn "Terminating all connections..."
+                      liftIO $ unless suspend (saveStatus S.empty)
+                      runConfigs timeout "down" st
   | otherwise = do
-      liftIO $ saveStatus $ S.filter ( \f -> not (S.member f n) ) s
-      call timeout "down" n
+      liftIO $ saveStatus $ S.filter ( \f -> not (S.member f req) ) st
+      runConfigs timeout "down" req
