@@ -1,0 +1,9 @@
+function _netu {
+  # $0 — bash
+  # $1 — netu
+  # $2 — последний дополняемый аргумент
+  # $3 — предпоследний аргумент
+  COMPREPLY=($( netm_complete_conf $2 ))
+}
+
+complete -F _netu netn netu netd

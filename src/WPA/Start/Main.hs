@@ -3,6 +3,7 @@ import System.Process
 import System.IO
 import Data.List (isInfixOf)
 import Control.Monad (unless)
+import System.Exit (exitFailure)
 
 
 desired = "CTRL-EVENT-CONNECTED"
@@ -25,7 +26,9 @@ parseLine :: Bool -> Handle -> IO ()
 parseLine quiet o = do
     eof <- hIsEOF o
     if eof
-    then hPutStrLn stderr "Daemon unexpectally terminated"
+    then do
+        hPutStrLn stderr "Daemon unexpectally terminated"
+        exitFailure
     else do
         s <- hGetLine o
         unless quiet (putStrLn s)

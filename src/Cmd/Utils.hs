@@ -28,6 +28,43 @@ stFile = "/var/lib/netm/active" -- status, файл с текущими соед
 data Option = Quiet | Timeout Int | Suspend | Resume deriving (Eq, Show)
 
 
+-- Находит файлы подходящие под сокращение имени конфига
+getFiles :: String -> IO (String, [String])
+getFiles abbr = do
+
+    files   <- globDir abbr
+    scripts <- filterM isScript files
+    let names = map (fromJust . stripPrefix etcDir) scripts
+    return (abbr, names)
+
+    where
+
+        -- Находит файлы, удовлетворяющие аббревиатуре конфига
+        globDir :: String -> IO [FilePath]
+        globDir abbr =
+            liftM (concat . fst) -- совпавшие имена для первого шаблона
+            $ G.globDirWith
+                G.MatchOptions {
+                      G.ignoreCase = True
+                    , G.matchDotsImplicitly = False
+                    , G.ignoreDotSlash = False
+                    }
+                ( map G.compile (toPatterns abbr) )
+                etcDir
+
+        -- Является ли файл не каталогом и исполняемым
+        isScript :: FilePath -> IO Bool
+        isScript f =  liftM executable (getPermissions f)
+
+        -- Сокращение имени конфига -> sh-шаблоны для поиска файлов
+        toPatterns :: String -> [String]
+        toPatterns a = [ pattern
+                       , pattern ++ "/**/*"
+                       ]
+            where pattern = intercalate "/" . map (++"*") . splitOn "/" $ a
+                  -- "do/wl" -> "do*/wl*" — сматчится на "dolphin/wlan"
+
+
 -- Извлечение опций и имён конфигов из аргументов командной строки
 parseArgs :: String -> [OptDescr a] -> IO ([a], S.Set String)
 parseArgs usage options = do
@@ -54,37 +91,6 @@ parseArgs usage options = do
                       $ \ (_, fs) -> let l = length fs in l > 1 || l == 0
             unless (null wired) (mapM_ reportErr wired >> exitFailure)
             return . S.fromList . map (head . snd) $ files
-
-        -- Находит файлы подходящие под сокращение имени конфига
-        getFiles :: String -> IO (String, [String])
-        getFiles abbr = do
-            files <- globDir abbr
-            scripts <- filterM isScript files
-            let names = map (fromJust . stripPrefix etcDir) scripts
-            return (abbr, names)
-            where
-
-                -- Находит файлы, удовлетворяющие аббревиатуре конфига
-                globDir :: String -> IO [FilePath]
-                globDir abbr =
-                    liftM (head . fst) -- совпавшие имена для первого шаблона
-                    $ G.globDirWith
-                        G.MatchOptions {
-                              G.ignoreCase = True
-                            , G.matchDotsImplicitly = False
-                            , G.ignoreDotSlash = False
-                            }
-                        [ G.compile (toPattern abbr) ]
-                        etcDir
-
-                -- Является ли файл не каталогом и исполняемым
-                isScript :: FilePath -> IO Bool
-                isScript f =  liftM executable (getPermissions f)
-
-                -- Сокращение имени конфига -> sh-шаблон для поиска файлов
-                toPattern :: String -> String
-                toPattern = intercalate "/" . map (++"*") . splitOn "/"
-                  -- "do/wl" -> "do*/wl*" — сматчится на "dolphin/wlan"
 
         reportErr :: (String, [String]) -> IO ()
         reportErr (abbr, files)
