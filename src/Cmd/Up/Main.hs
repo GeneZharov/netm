@@ -7,18 +7,20 @@ import Data.List (intersect, (\\))
 import Utils
 
 
-usage = "Usage: netu [OPTION...] [files...]"
+usage = "Usage: netu [OPTION...] [config...]"
 
 opts :: [OptDescr Option]
 opts =
   [ Option "r" ["resume"] (NoArg Resume)
      "Восстановить состояние"
-  , Option "q" ["quiet"]   (NoArg Quiet)
+  , Option "q" ["quiet"] (NoArg Quiet)
      "Подавить вывод stdout"
   , Option "t" ["timeout"] (ReqArg (Timeout . read) "INT")
      "Время ожидания пользовательского скрипта"
   , Option "C" ["--no-completion"] (NoArg NoCompletion)
      "Не выполнять дополнение имён конфигов"
+  , Option "h" ["help"] (NoArg Help)
+     "Распечатать API команды"
   ]
 
 

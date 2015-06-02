@@ -7,7 +7,7 @@ import Data.List (intersect)
 import Utils
 
 
-usage = "Usage: netd [OPTION...] [files...]"
+usage = "Usage: netd [OPTION...] [config...]"
 
 opts :: [OptDescr Option]
 opts =

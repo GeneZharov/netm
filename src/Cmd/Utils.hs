@@ -26,7 +26,8 @@ stFile = "/var/lib/netm/active" -- status, файл с текущими соед
 type Abbr   = String -- сокращение имени конфига, например n/w
 type Config = String -- полное имя конфига, например nest/wlan
 
-data Option = Quiet
+data Option = Help
+            | Quiet
             | Timeout Int
             | Suspend
             | Resume
@@ -43,6 +44,10 @@ parseArgs usage options = do
     (opts,files) <- case getOpt RequireOrder options argv of
       (o,n,[]  ) -> return (o,n)
       (_,_,errs) -> ioError $ userError (concat errs ++ usageInfo usage options)
+
+    when (Help `elem` opts) $ do
+        putStrLn (usageInfo usage options)
+        exitSuccess
 
     -- Формирование имён конфигов
     files' <- if NoCompletion `elem` opts
