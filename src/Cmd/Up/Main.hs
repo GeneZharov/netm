@@ -1,8 +1,8 @@
 import Control.Monad (unless)
-import qualified Data.Set as S
 import System.Console.GetOpt
 import Control.Monad.Trans.State
 import Control.Monad.IO.Class (liftIO)
+import Data.List (intersect, (\\))
 
 import Utils
 
@@ -17,24 +17,26 @@ opts =
      "Подавить вывод stdout"
   , Option "t" ["timeout"] (ReqArg (Timeout . read) "INT")
      "Время ожидания пользовательского скрипта"
+  , Option "C" ["--no-completion"] (NoArg NoCompletion)
+     "Не выполнять дополнение имён конфигов"
   ]
 
 
 main :: IO ()
 main = inEnv usage opts $ \ opts req st
-                         -> up (getTimeout opts) (Resume `elem` opts) st req
+                         -> up (getTimeout opts) (Resume `elem` opts) req st
 
 
 -- В состоянии флаг, показывающий была ли ошибка в запуске какого-либо конфига
-up :: Int -> Bool -> S.Set FilePath -> S.Set FilePath -> StateT Bool IO ()
-up timeout resume st req
-  | S.null req = if S.null st
-                 then liftIO $ putStrLn "Nothing to restart"
-                 else do
-                      liftIO $ putStrLn "Restarting all connections..."
-                      unless resume (runConfigs timeout "down" st)
-                      runConfigs timeout "up" st
+up :: Int -> Bool -> [Config] -> [Config] -> StateT Bool IO ()
+up timeout resume req st
+  | null req = if null st
+               then liftIO $ putStrLn "Nothing to restart"
+               else do
+                    liftIO $ putStrLn "Restarting all connections..."
+                    unless resume $ runConfigs timeout "down" (reverse st)
+                    runConfigs timeout "up" st
   | otherwise = do
-      liftIO $ saveStatus (S.union st req)
-      runConfigs timeout "down" (S.intersection st req)
+      liftIO $ saveStatus ((st \\ req) ++ req)
+      runConfigs timeout "down" (reverse (intersect st req))
       runConfigs timeout "up" req

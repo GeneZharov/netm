@@ -1,0 +1,37 @@
+#!/bin/zsh
+setopt err_exit # Прервать выполнение в случае ошибки
+
+
+if [[ $1 == down ]] {
+  echo Everything is already terminated
+  exit
+}
+
+function error {
+  # Выводит сообщение об ошибке на stderr и завершает скрипт
+  echo $* 1>&2
+  exit 1
+}
+
+source $(dirname $0)/utils.sh
+typeset -A ssid_map; ssid_map=(${(z)SSID_MAP})
+
+
+ip link set up dev $IFACE
+available=($( try iw dev $IFACE scan | grep SSID | awk '{ print $2 }' ))
+
+if [[ -z $available ]] {
+  error No available access points
+} else {
+  echo Available access points:
+  for ssid in $available; { echo "   $ssid" }
+}
+
+for ssid in $available; {
+  config=$ssid_map[$ssid]
+  if [[ -n $config ]] {
+    netu $config
+    exit
+  }
+}
+error No desired access points

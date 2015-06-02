@@ -27,6 +27,6 @@ main = do
 
 complete :: String -> IO ()
 complete abbr = do
-    (_, confs) <- getFiles abbr
+    (_, confs) <- expandAbbr abbr
     let confs' = filter (not . isPrefixOf "_") confs
     mapM_ putStrLn confs'

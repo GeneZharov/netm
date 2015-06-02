@@ -1,8 +1,8 @@
 import Control.Monad (unless)
-import qualified Data.Set as S
 import System.Console.GetOpt
 import Control.Monad.Trans.State
 import Control.Monad.IO.Class (liftIO)
+import Data.List (intersect)
 
 import Utils
 
@@ -17,22 +17,24 @@ opts =
      "Подавить вывод stdout"
   , Option "t" ["timeout"] (ReqArg (Timeout . read) "INT")
      "Время ожидания пользовательского скрипта"
+  , Option "C" ["--no-completion"] (NoArg NoCompletion)
+     "Не выполнять дополнение имён конфигов"
   ]
 
 
 main :: IO ()
 main = inEnv usage opts $ \ opts req st
-                         -> down (getTimeout opts) (Suspend `elem` opts) st req
+                         -> down (getTimeout opts) (Suspend `elem` opts) req st
 
 
-down :: Int -> Bool -> S.Set FilePath -> S.Set FilePath -> StateT Bool IO ()
-down timeout suspend st req
-  | S.null req = if S.null st
-                 then liftIO $ putStrLn "Nothing to shut down"
-                 else do
-                      liftIO $ putStrLn "Terminating all connections..."
-                      liftIO $ unless suspend (saveStatus S.empty)
-                      runConfigs timeout "down" st
+down :: Int -> Bool -> [FilePath] -> [FilePath] -> StateT Bool IO ()
+down timeout suspend req st
+  | null req = if null st
+               then liftIO $ putStrLn "Nothing to shut down"
+               else do
+                    liftIO $ putStrLn "Terminating all connections..."
+                    liftIO $ unless suspend (saveStatus [])
+                    runConfigs timeout "down" (reverse st)
   | otherwise = do
-      liftIO $ saveStatus $ S.filter ( \f -> not (S.member f req) ) st
-      runConfigs timeout "down" req
+      liftIO $ saveStatus $ filter ( \f -> not (elem f req) ) st
+      runConfigs timeout "down" (reverse req)

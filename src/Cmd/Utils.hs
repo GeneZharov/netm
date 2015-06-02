@@ -6,7 +6,6 @@ import System.Environment (getArgs)
 import Control.Monad
 import System.IO -- работа с файлами
 import qualified System.FilePath.Glob as G
-import qualified Data.Set as S
 import System.FilePath
 import Data.List.Split
 import Data.List (intercalate, stripPrefix, isPrefixOf)
@@ -24,13 +23,56 @@ import System.IO.Silently (silence)
 etcDir = "/etc/netm/"           -- каталог конфигов пользователя
 stFile = "/var/lib/netm/active" -- status, файл с текущими соединениями
 
+type Abbr   = String -- сокращение имени конфига, например n/w
+type Config = String -- полное имя конфига, например nest/wlan
 
-data Option = Quiet | Timeout Int | Suspend | Resume deriving (Eq, Show)
+data Option = Quiet
+            | Timeout Int
+            | Suspend
+            | Resume
+            | NoCompletion
+            deriving (Eq, Show)
+
+
+-- Извлечение опций и имён конфигов из аргументов командной строки
+parseArgs :: String -> [OptDescr Option] -> IO ([Option], [Config])
+parseArgs usage options = do
+
+    -- Разбор опций командной строки
+    argv <- getArgs
+    (opts,files) <- case getOpt RequireOrder options argv of
+      (o,n,[]  ) -> return (o,n)
+      (_,_,errs) -> ioError $ userError (concat errs ++ usageInfo usage options)
+
+    -- Формирование имён конфигов
+    files' <- if NoCompletion `elem` opts
+              then return files
+              else parseAbbrs files
+
+    return (opts, files')
+
+    where
+
+        -- Получение имён конфигов на основе аргументов командной строки
+        parseAbbrs :: [Abbr] -> IO [Config]
+        parseAbbrs files = do
+            files <- mapM expandAbbr files
+            let wired = flip filter files
+                      $ \ (_, fs) -> let l = length fs in l > 1 || l == 0
+            unless (null wired) (mapM_ reportErr wired >> exitFailure)
+            return . map (head . snd) $ files
+
+        reportErr :: (Abbr, [Config]) -> IO ()
+        reportErr (abbr, files)
+            | null files = putStr "No conifgs found: " >> print abbr
+            | otherwise  = do
+                putStrLn ("Non-obvious config abbreviation: " ++ abbr)
+                forM_ files $ putStrLn . (++) (replicate 2 ' ')
 
 
 -- Находит файлы подходящие под сокращение имени конфига
-getFiles :: String -> IO (String, [String])
-getFiles abbr = do
+expandAbbr :: Abbr -> IO (Abbr, [Config])
+expandAbbr abbr = do
 
     files   <- globDir abbr
     scripts <- filterM isScript files
@@ -40,7 +82,7 @@ getFiles abbr = do
     where
 
         -- Находит файлы, удовлетворяющие аббревиатуре конфига
-        globDir :: String -> IO [FilePath]
+        globDir :: Abbr -> IO [FilePath]
         globDir abbr =
             liftM (concat . fst) -- совпавшие имена для первого шаблона
             $ G.globDirWith
@@ -57,7 +99,7 @@ getFiles abbr = do
         isScript f =  liftM executable (getPermissions f)
 
         -- Сокращение имени конфига -> sh-шаблоны для поиска файлов
-        toPatterns :: String -> [String]
+        toPatterns :: Abbr -> [String]
         toPatterns a = [ pattern
                        , pattern ++ "/**/*"
                        ]
@@ -65,53 +107,18 @@ getFiles abbr = do
                   -- "do/wl" -> "do*/wl*" — сматчится на "dolphin/wlan"
 
 
--- Извлечение опций и имён конфигов из аргументов командной строки
-parseArgs :: String -> [OptDescr a] -> IO ([a], S.Set String)
-parseArgs usage options = do
-
-    -- Разбор опций командной строки
-    argv <- getArgs
-    (opts,files) <- case getOpt RequireOrder options argv of
-      (o,n,[]  ) -> return (o,n)
-      (_,_,errs) -> ioError $ userError (concat errs ++ usageInfo usage options)
-
-    -- Формирование имён конфигов
-    files' <- argsToFiles files
-
-    return (opts, files')
-
-    where
-
-        -- Получение имён конфигов на основе аргументов командной строки
-        argsToFiles :: [String] -> IO (S.Set String)
-        argsToFiles files = do
-
-            files <- mapM getFiles files
-            let wired = flip filter files
-                      $ \ (_, fs) -> let l = length fs in l > 1 || l == 0
-            unless (null wired) (mapM_ reportErr wired >> exitFailure)
-            return . S.fromList . map (head . snd) $ files
-
-        reportErr :: (String, [String]) -> IO ()
-        reportErr (abbr, files)
-            | null files = putStr "No conifgs found: " >> print abbr
-            | otherwise  = do
-                putStrLn ("Non-obvious config name: " ++ abbr)
-                forM_ files $ putStrLn . (++) (replicate 2 ' ')
-
-
-loadStatus :: IO (S.Set String)
+loadStatus :: IO [Config]
 loadStatus = withFile stFile ReadMode $
-    \h -> hGetContents h >>= readIO :: IO (S.Set String)
+    \h -> hGetContents h >>= readIO :: IO [Config]
 
 
-saveStatus :: S.Set String -> IO ()
+saveStatus :: [Config] -> IO ()
 saveStatus status = withFile stFile WriteMode $
     \h -> hPrint h status
 
 
 -- Запускает множество пользовательских конфигов с заданной командой
---runConfigs :: Int -> String -> S.Set FilePath -> State Bool ()
+--runConfigs :: Int -> String -> [Config] -> State Bool ()
 runConfigs timeout action files =
 
    liftIO callIO >>= modify . (||)
@@ -119,7 +126,7 @@ runConfigs timeout action files =
    where
 
      callIO :: IO Bool
-     callIO = liftM or . forM (S.toList files) $ \ f -> do
+     callIO = liftM or . forM files $ \ f -> do
         let cmd = unwords [ f, action ]
         printHeader $ printf ("Executing: " ++ cmd)
         execute timeout f >>= handleError cmd
@@ -131,7 +138,7 @@ runConfigs timeout action files =
         putStr $ replicate (length text) '━'
         setSGR [ Reset ] >> putStrLn ""
 
-     execute :: Int -> FilePath -> IO ExitCode
+     execute :: Int -> Config -> IO ExitCode
      execute timeout f =
         let f' = etcDir ++ f
             cmd = printf "timeout --foreground %d %s %s" timeout f' action
@@ -154,14 +161,14 @@ runConfigs timeout action files =
 -- запрашиваемые соединения, текущие соединения
 inEnv :: String
       -> [OptDescr Option]
-      -> ( [Option] -> S.Set String -> S.Set String -> StateT Bool IO () )
+      -> ( [Option] -> [Config] -> [Config] -> StateT Bool IO () )
       -> IO ()
 inEnv usage opts cmd = do
    st           <- loadStatus
-   (opts', new) <- parseArgs usage opts
+   (opts', req) <- parseArgs usage opts
    (_, err)     <- verbosity opts'
                  $ flip runStateT False
-                 $ cmd opts' new st
+                 $ cmd opts' req st
    when err $ exitWith (ExitFailure 2)
 
    where verbosity opts = if Quiet `elem` opts

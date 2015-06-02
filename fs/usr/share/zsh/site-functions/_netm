@@ -1,12 +1,12 @@
 #compdef netn netu netd
 
-function _netu {
+function _netm {
   # $0 — _netu
   # $1, $2, ... — пусто
   # $words — массив, под индексом 2 — первый аргумент
   # $CURRENT — индекс в массиве words текущего аргумента
   items=($( netm_complete_conf $words[$CURRENT] ))
-  compadd $items
+  compadd -U $items
 }
 
-_arguments '*::: :_netu'
+_arguments '*::: :_netm'

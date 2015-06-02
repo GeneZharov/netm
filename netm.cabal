@@ -17,7 +17,6 @@ library
   hs-source-dirs: src/Cmd
   build-depends:
       base
-    , containers
     , process >= 1.2
     , Glob
     , filepath
@@ -39,9 +38,6 @@ executable netu
   build-depends:
       base
     , netm
-    , containers
-    , Glob
-    , process
     , transformers
 
 executable netd
@@ -51,9 +47,6 @@ executable netd
   build-depends:
       base
     , netm
-    , containers
-    , Glob
-    , process
     , transformers
 
 executable nets
@@ -63,7 +56,6 @@ executable nets
   build-depends:
       base
     , netm
-    , containers
 
 executable netn
   default-language: Haskell2010
@@ -72,7 +64,6 @@ executable netn
   build-depends:
       base
     , netm
-    , containers
     , transformers
 
 
