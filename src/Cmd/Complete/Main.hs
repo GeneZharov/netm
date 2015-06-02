@@ -14,7 +14,7 @@ import Control.Monad
 import Data.List (isPrefixOf)
 import System.Environment (getArgs)
 
-import Utils
+import Utils.Args
 
 
 main :: IO ()

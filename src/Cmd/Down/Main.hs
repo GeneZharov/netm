@@ -4,7 +4,9 @@ import Control.Monad.Trans.State
 import Control.Monad.IO.Class (liftIO)
 import Data.List (intersect)
 
-import Utils
+import Utils.Options
+import Utils.Args
+import Utils.Misc
 
 
 usage = "Usage: netd [OPTION...] [config...]"

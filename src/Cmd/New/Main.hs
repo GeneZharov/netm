@@ -5,7 +5,9 @@ import System.IO (hPutStrLn, stderr)
 import System.Exit
 import Data.List (intersect)
 
-import Utils
+import Utils.Options
+import Utils.Args
+import Utils.Misc
 
 
 usage = "Usage: netn [OPTION...] config..."

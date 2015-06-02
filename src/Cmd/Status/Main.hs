@@ -1,6 +1,6 @@
 import Control.Monad
 
-import Utils
+import Utils.Misc
 
 
 main :: IO ()
