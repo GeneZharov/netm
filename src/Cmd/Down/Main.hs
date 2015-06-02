@@ -10,15 +10,8 @@ import Utils
 usage = "Usage: netd [OPTION...] [config...]"
 
 opts :: [OptDescr Option]
-opts =
-  [ Option "s" ["suspend"] (NoArg Suspend)
-     "Сохранить состояние"
-  , Option "q" ["quiet"]   (NoArg Quiet)
-     "Подавить вывод stdout"
-  , Option "t" ["timeout"] (ReqArg (Timeout . read) "INT")
-     "Время ожидания пользовательского скрипта"
-  , Option "C" ["--no-completion"] (NoArg NoCompletion)
-     "Не выполнять дополнение имён конфигов"
+opts = commonOptions ++ [
+    Option "s" ["suspend"] (NoArg Suspend) "Сохранить состояние"
   ]
 
 
@@ -36,5 +29,5 @@ down timeout suspend req st
                     liftIO $ unless suspend (saveStatus [])
                     runConfigs timeout "down" (reverse st)
   | otherwise = do
-      liftIO $ saveStatus $ filter ( \f -> not (elem f req) ) st
+      liftIO $ saveStatus $ filter (`notElem` req) st
       runConfigs timeout "down" (reverse req)

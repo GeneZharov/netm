@@ -10,20 +10,10 @@ import Utils
 
 usage = "Usage: netn [OPTION...] config..."
 
-opts :: [OptDescr Option]
-opts =
-  [ Option "q" ["quiet"]   (NoArg Quiet)
-     "Подавить вывод stdout"
-  , Option "t" ["timeout"] (ReqArg (Timeout . read) "INT")
-     "Время ожидания пользовательского скрипта"
-  , Option "C" ["--no-completion"] (NoArg NoCompletion)
-     "Не выполнять дополнение имён конфигов"
-  ]
-
 
 main :: IO ()
-main = inEnv usage opts $ \ opts req st
-                         -> new (getTimeout opts) req st
+main = inEnv usage commonOptions $ \ opts req st
+                                  -> new (getTimeout opts) req st
 
 
 new :: Int -> [Config] -> [Config] -> StateT Bool IO ()
