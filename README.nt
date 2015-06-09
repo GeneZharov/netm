@@ -204,7 +204,7 @@
 
 ┃ Timeout
    Не получилось написать хаскельный таймаут. Смотри 
-   "~/d/d/hs/recipes/timeouts.nt". Решил использовать утилиту timeout из 
+   "~/d/d/hs/recipes/timeouts.nt". Решил использовать бинарник timeout из 
    coreutils, что совсем неплохо. Проверил, что эта команда доступна вместе с 
    ключём --foreground в разных ОС:
       gentoo, timeout-8.21

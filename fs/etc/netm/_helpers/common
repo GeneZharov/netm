@@ -1,7 +1,7 @@
 #!/bin/zsh
 
 
-# Скрипт для управления типичными соединениями:
+# Скрипт для управления типовыми соединениями:
 #   wlan wpa static — дом, офис
 #   wlan wpa dhcp   — гостиницы
 #   wlan dhcp       — кафэшки, общественный транспорт
@@ -11,9 +11,10 @@
 #
 # Использует следующие переменные окружения:
 #   Флаги (0 или 1):
-#     WLAN — нужно ли настраивать подключение к точке доступа
-#     WPA  — используется ли wpa для подключения к точке доступа
-#     DHCP — использовать dhcp или статические настройки ip
+#     WLAN — default=1, нужно ли настраивать подключение к точке доступа
+#     WPA  — default=0, используется ли wpa для подключения к точке доступа
+#     DHCP — default=1, использовать dhcp или статические настройки ip
+#     TEST — default=1, нужно ли в конце пинговать соединение
 #   Строчные:
 #     IFACE — название сетевого интерфейса (например wlan0)
 #     WPA_CONF — путь к конфигу wpa_supplicant
@@ -24,6 +25,11 @@
 source $(dirname $0)/utils.sh
 
 wpa_sock=/var/run/wpa_supplicant/$IFACE
+
+WLAN=${WLAN-1}
+WPA=${WPA-0}
+DHCP=${DHCP-1}
+TEST=${TEST-1}
 
 
 function up {
@@ -54,7 +60,7 @@ function up {
     echo "nameserver $GATE" > /etc/resolv.conf
   }
 
-  test_connection
+  if (( $TEST )) { test_connection }
 
 }
 
