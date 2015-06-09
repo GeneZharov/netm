@@ -2,14 +2,7 @@ module Utils.Options where
 
 import System.Console.GetOpt
 
-
-data Option = Help
-            | Quiet
-            | Timeout Int
-            | Suspend
-            | Resume
-            | NoCompletion
-            deriving (Eq, Show)
+import Utils.Common
 
 
 commonOptions :: [OptDescr Option]
@@ -27,6 +20,13 @@ commonOptions =
 
 -- Формирует время ожидания на основе списка опций
 getTimeout :: [Option] -> Int
-getTimeout (Timeout t:os) = t
-getTimeout (_:os)         = getTimeout os
-getTimeout []             = 120 -- по умолчанию 2 минуты
+getTimeout (Timeout t : os) = t
+getTimeout (_ : os)         = getTimeout os
+getTimeout []               = 120 -- по умолчанию 2 минуты
+
+
+-- Извлекает имя владельца из списка опций
+getOwner :: [Option] -> Maybe Parent
+getOwner (Owner o : os) = Just o
+getOwner (_ : os)       = getOwner os
+getOwner []             = Nothing

@@ -1,37 +1,84 @@
-import Control.Monad (unless)
+import Control.Monad (unless, when)
 import System.Console.GetOpt
 import Control.Monad.Trans.State
 import Control.Monad.IO.Class (liftIO)
-import Data.List (intersect, (\\))
+import Data.List ((\\), union)
+import Data.Maybe (isJust, fromJust)
+import System.IO
+import System.Exit
 
-import Utils.Options
-import Utils.Args
-import Utils.Misc
+import Utils.Common
+import Utils.Options (commonOptions, getTimeout, getOwner)
+import Utils.Hierarchy (getDescendants)
+import Utils.Misc (inEnv, runConfigs, save)
 
 
-usage = "Usage: netu [OPTION...] [config...]"
+usage = "Usage: netu [option...] [config...]\n\
+        \   or: netu --owner=config [option...] config...\n\
+        \   or: netu --resume [option...]\n\
+        \   or: netu --help"
+
 
 opts :: [OptDescr Option]
-opts = commonOptions ++ [
-    Option "r" ["resume"] (NoArg Resume) "Восстановить состояние"
+opts = commonOptions ++
+  [ Option "r" ["resume"] (NoArg Resume) "Восстановить состояние"
+  , Option "o" ["owner" ] (ReqArg Owner "STRING") "Имя конфига-владельца"
   ]
 
 
 main :: IO ()
-main = inEnv usage opts $ \ opts req st
-                         -> up (getTimeout opts) (Resume `elem` opts) req st
+main = inEnv usage opts $ \ opts req st hc
+                         -> up ( getTimeout    opts )
+                               ( Resume `elem` opts )
+                               ( getOwner      opts )
+                               req  st  hc
 
 
--- В состоянии флаг, показывающий была ли ошибка в запуске какого-либо конфига
-up :: Int -> Bool -> [Config] -> [Config] -> StateT Bool IO ()
-up timeout resume req st
-  | null req = if null st
-               then liftIO $ putStrLn "Nothing to restart"
-               else do
-                    liftIO $ putStrLn "Restarting all connections..."
-                    unless resume $ runConfigs timeout "down" (reverse st)
-                    runConfigs timeout "up" st
-  | otherwise = do
-      liftIO $ saveStatus ((st \\ req) ++ req)
-      runConfigs timeout "down" (reverse (st `intersect` req))
-      runConfigs timeout "up" req
+up :: Int -> Bool
+   -> Maybe Parent -> [Name] -> [Name] -> [Relation]
+   -> StateT Bool IO ()
+   -- В состоянии — флаг, показывающий была ли ошибка в запуске любого конфига
+
+
+up _ _ _ [] [] _ =
+    liftIO $ putStrLn "Nothing to restart"
+
+
+-- Перезапуск всех соединений
+up timeout resume Nothing [] st hc = do
+    let noParents = st \\ fst `map` hc -- не имеющие своих родителей
+    liftIO $ do
+        putStrLn "Restarting all connections..."
+        save statusFile noParents
+        save hierarchyFile ([] :: [Relation])
+    unless resume $ runConfigs timeout "down" (reverse st)
+    runConfigs timeout "up" noParents
+
+
+-- Перезапуск заданных дочерних соединений
+up timeout resume owner req st hc = do
+
+    -- Проверка что запрашиваемые соединения не имеют других родителей
+    liftIO
+      $ when (isJust owner)
+      $ let conflicts = [ child | (child, parent) <- hc
+                                , child `elem` req
+                                , parent /= fromJust owner
+                        ]
+        in unless (null conflicts) $ do
+            hPutStrLn stderr "Already have another parents:"
+            hPrint stderr conflicts
+            exitFailure
+
+    let forDown = req >>= \ p -> p : getDescendants hc p
+
+    liftIO $ do
+        save statusFile $ (st \\ forDown) ++ req
+        save hierarchyFile $
+           if isJust owner
+           then hc `union` [ (name, fromJust owner) | name <- req ]
+           else (`filter` hc) $
+              \ (child, _) -> child `notElem` forDown || child `elem` req
+
+    runConfigs timeout "down" (reverse forDown)
+    runConfigs timeout "up" req

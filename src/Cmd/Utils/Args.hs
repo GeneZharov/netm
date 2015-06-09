@@ -3,7 +3,6 @@ module Utils.Args where
 import System.Environment (getArgs)
 import qualified System.FilePath.Glob as G
 import Data.List.Split
-import System.IO.Silently (silence)
 import System.Exit
 import System.Console.GetOpt
 import System.Directory (getPermissions, executable)
@@ -12,18 +11,17 @@ import Control.Monad
 import Data.List (intercalate, stripPrefix, isPrefixOf)
 import Control.Monad.Trans.State
 
-import Utils.Misc
-import Utils.Options
+import Utils.Common
 
 
 
 -- Находит файлы подходящие под сокращение имени конфига
-expandAbbr :: Abbr -> IO (Abbr, [Config])
+expandAbbr :: Abbr -> IO (Abbr, [Name])
 expandAbbr abbr = do
 
     files   <- globDir abbr
-    scripts <- filterM isScript files
-    let names = map (fromJust . stripPrefix etcDir) scripts
+    scripts <- isScript `filterM` files
+    let names = (fromJust . stripPrefix etcDir) `map` scripts
     return (abbr, names)
 
     where
@@ -56,7 +54,7 @@ expandAbbr abbr = do
 
 
 -- Извлечение опций и имён конфигов из аргументов командной строки
-parseArgs :: String -> [OptDescr Option] -> IO ([Option], [Config])
+parseArgs :: String -> [OptDescr Option] -> IO ([Option], [Name])
 parseArgs usage options = do
 
     -- Разбор опций командной строки
@@ -79,37 +77,17 @@ parseArgs usage options = do
     where
 
         -- Получение имён конфигов на основе аргументов командной строки
-        parseAbbrs :: [Abbr] -> IO [Config]
+        parseAbbrs :: [Abbr] -> IO [Name]
         parseAbbrs files = do
-            files <- mapM expandAbbr files
-            let wired = flip filter files
+            files <- expandAbbr `mapM` files
+            let wired = (`filter` files)
                       $ \ (_, fs) -> let l = length fs in l > 1 || l == 0
             unless (null wired) (mapM_ reportErr wired >> exitFailure)
             return . map (head . snd) $ files
 
-        reportErr :: (Abbr, [Config]) -> IO ()
+        reportErr :: (Abbr, [Name]) -> IO ()
         reportErr (abbr, files)
             | null files = putStr "No conifgs found: " >> print abbr
             | otherwise  = do
                 putStrLn ("Non-obvious config abbreviation: " ++ abbr)
                 forM_ files $ putStrLn . (++) (replicate 2 ' ')
-
-
-
--- Запускает пользовательскую функцию, передавая в неё опции запуска, 
--- запрашиваемые соединения, текущие соединения
-inEnv :: String
-      -> [OptDescr Option]
-      -> ( [Option] -> [Config] -> [Config] -> StateT Bool IO () )
-      -> IO ()
-inEnv usage opts cmd = do
-   st           <- loadStatus
-   (opts', req) <- parseArgs usage opts
-   (_, err)     <- verbosity opts'
-                 $ flip runStateT False
-                 $ cmd opts' req st
-   when err $ exitWith (ExitFailure 2)
-
-   where verbosity opts = if Quiet `elem` opts
-                          then silence
-                          else id

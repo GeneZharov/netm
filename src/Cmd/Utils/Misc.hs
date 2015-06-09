@@ -10,35 +10,53 @@ import System.Console.ANSI -- для цветного вывода
 import System.Exit
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.State
+import System.Console.GetOpt
+import System.IO.Silently (silence)
+
+import Utils.Common
+import Utils.Args
 
 
-etcDir = "/etc/netm/"           -- каталог конфигов пользователя
-stFile = "/var/lib/netm/active" -- status, файл с текущими соединениями
-
-type Abbr   = String -- сокращение имени конфига, например n/w
-type Config = String -- полное имя конфига, например nest/wlan
+-- Сохранение данных в файл и загрузка
+load file      = withFile file ReadMode  (hGetContents >=> readIO)
+save file info = withFile file WriteMode (`hPrint` info)
 
 
-loadStatus :: IO [Config]
-loadStatus = withFile stFile ReadMode $
-    \h -> hGetContents h >>= readIO :: IO [Config]
+-- Запускает пользовательскую функцию, передавая в неё опции запуска, 
+-- запрашиваемые соединения, текущие соединения
+inEnv :: String
+      -> [OptDescr Option]
+      -> ( [Option]
+         -> [Name]     -- request
+         -> [Name]     -- status
+         -> [Relation] -- hierarchy
+         -> StateT Bool IO ()
+         )
+      -> IO ()
+inEnv usage opts cmd = do
+   st           <- load statusFile    :: IO [Name]
+   hc           <- load hierarchyFile :: IO [Relation]
+   (opts', req) <- parseArgs usage opts
+   (_, err)     <- verbosity opts'
+                 $ flip runStateT False
+                 $ cmd opts' req st hc
+   when err $ exitWith (ExitFailure 2)
 
-
-saveStatus :: [Config] -> IO ()
-saveStatus status = withFile stFile WriteMode $
-    \h -> hPrint h status
+   where verbosity opts = if Quiet `elem` opts
+                          then silence
+                          else id
 
 
 -- Запускает множество пользовательских конфигов с заданной командой
---runConfigs :: Int -> String -> [Config] -> State Bool ()
+--runConfigs :: Int -> String -> [Name] -> State Bool ()
 runConfigs timeout action files =
 
-   liftIO callIO >>= modify . (||)
+   liftIO runConfigsIO >>= modify . (||)
 
    where
 
-     callIO :: IO Bool
-     callIO = liftM or . forM files $ \ f -> do
+     runConfigsIO :: IO Bool
+     runConfigsIO = liftM or . forM files $ \ f -> do
         let cmd = unwords [ f, action ]
         printHeader $ printf ("Executing: " ++ cmd)
         execute timeout f >>= handleError cmd
@@ -50,7 +68,7 @@ runConfigs timeout action files =
         putStr $ replicate (length text) '━'
         setSGR [ Reset ] >> putStrLn ""
 
-     execute :: Int -> Config -> IO ExitCode
+     execute :: Int -> Name -> IO ExitCode
      execute timeout f =
         let f' = etcDir ++ f
             cmd = printf "timeout --foreground %d %s %s" timeout f' action
