@@ -2,7 +2,7 @@ import Control.Monad (unless, when)
 import System.Console.GetOpt
 import Control.Monad.Trans.State
 import Control.Monad.IO.Class (liftIO)
-import Data.List ((\\), union)
+import Data.List ((\\), union, intersect)
 import Data.Maybe (isJust, fromJust)
 import System.IO
 import System.Exit
@@ -70,7 +70,9 @@ up timeout resume owner req st hc = do
             hPrint stderr conflicts
             exitFailure
 
-    let forDown = req >>= \ p -> p : getDescendants hc p
+    let forDown = do
+           n <- req `intersect` st
+           n : getDescendants hc n
 
     liftIO $ do
         save statusFile $ (st \\ forDown) ++ req

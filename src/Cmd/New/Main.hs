@@ -3,6 +3,7 @@ import Control.Monad.Trans.State
 import Control.Monad.IO.Class (liftIO)
 import System.IO (hPutStrLn, stderr)
 import System.Exit
+import Data.List (intersect)
 
 import Utils.Common
 import Utils.Options (commonOptions, getTimeout)
@@ -29,7 +30,9 @@ new _ [] _ _ = liftIO $ do
 
 
 new timeout req st hc = do
-   let forDown = req >>= \ p -> p : getDescendants hc p
+   let forDown = do
+          n <- req `intersect` st
+          n : getDescendants hc n
    liftIO $ do
       save statusFile req
       save hierarchyFile ([] :: [Relation])
