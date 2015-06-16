@@ -30,11 +30,8 @@ new _ [] _ _ = liftIO $ do
 
 
 new timeout req st hc = do
-   let forDown = do
-          n <- req `intersect` st
-          n : getDescendants hc n
    liftIO $ do
       save statusFile req
       save hierarchyFile ([] :: [Relation])
-   runConfigs timeout "down" (reverse forDown)
+   runConfigs timeout "down" (reverse st)
    runConfigs timeout "up" req

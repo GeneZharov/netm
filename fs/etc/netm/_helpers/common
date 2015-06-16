@@ -34,7 +34,7 @@ TEST=${TEST-1}
 
 function up {
   setopt err_exit # Прервать выполнение в случае ошибки
-  #setopt xtrace   # Выводить исполняемые команды
+  #setopt xtrace  # Выводить исполняемые команды
 
   # Network interface
   try ip link set up dev $IFACE
