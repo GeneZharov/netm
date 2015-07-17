@@ -60,7 +60,10 @@ function up {
     echo "nameserver $GATE" > /etc/resolv.conf
   }
 
-  if (( $TEST )) { test_connection }
+  if (( $TEST )) {
+    sleep 1 # Иногда соединение не готово сразу после форканья dhcpcd
+    test_connection
+  }
 
 }
 

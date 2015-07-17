@@ -31,19 +31,19 @@ logStr logH str = emit logH (NOTICE, str) str -- отправляет строк
 main :: IO ()
 main = do
 
-    logH <- openlog "wpa_supplicant" [] DAEMON NOTICE
+   logH <- openlog "wpa_supplicant" [] DAEMON NOTICE
 
-    -- Создание псевдотерминала, через который будет проходить общение с 
-    -- wpa_supplicant. Если запустить его не через терминал, то он станет очень 
-    -- молчалив. Ключами вернуть дефолтный уровень словесности невозможно.
-    (master, slave) <- openPseudoTerminal
-    hslave <- fdToHandle slave
-    hSetBuffering hslave NoBuffering
+   -- Создание псевдотерминала, через который будет проходить общение с 
+   -- wpa_supplicant. Если запустить его не через терминал, то он станет очень 
+   -- молчалив. Ключами вернуть дефолтный уровень словесности невозможно.
+   (master, slave) <- openPseudoTerminal
+   hslave <- fdToHandle slave
+   hSetBuffering hslave NoBuffering
 
-    -- Запуск wpa_supplicant
-    args <- getArgs
-    (_, _, _, p) <- createProcess (proc "wpa_supplicant" args) {
-        env = Just [ ("TERM", "xterm") ]
+   -- Запуск wpa_supplicant
+   args <- getArgs
+   (_, _, _, p) <- createProcess (proc "wpa_supplicant" args)
+      { env = Just [ ("TERM", "xterm") ]
       , std_in  = UseHandle hslave
       , std_out = UseHandle hslave
       , std_err = UseHandle hslave
@@ -51,12 +51,12 @@ main = do
       , delegate_ctlc = True
       }
 
-    -- Читаю вывод wpa_supplicant из созданного псевдотерминала
-    forkIO $ forever $ do
-        (s, _) <- fdRead master 1024
-        let ls = endBy "\n" . filter (/='\r') $ s
-        forM ls $ \ l -> do
-            putStrLn l >> hFlush stdout
-            logStr logH l
+   -- Читаю вывод wpa_supplicant из созданного псевдотерминала
+   forkIO $ forever $ do
+      (s, _) <- fdRead master 1024
+      let ls = endBy "\n" . filter (/='\r') $ s
+      forM ls $ \ l -> do
+         putStrLn l >> hFlush stdout
+         logStr logH l
 
-    exitWith =<< waitForProcess p
+   exitWith =<< waitForProcess p

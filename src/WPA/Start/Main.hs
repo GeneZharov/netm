@@ -7,31 +7,31 @@ import System.Exit (exitFailure)
 
 
 desired = "CTRL-EVENT-CONNECTED"
-    -- Уйти в фоновый режим после того как будет встречена эта подстрока
+   -- Уйти в фоновый режим после того как будет встречена эта подстрока
 
 
 main :: IO ()
 main = do
-    args <- getArgs
-    let (quiet, args') = if head args == "--quiet"
-                         then (True, tail args)
-                         else (False, args)
-    (_, o, _, _) <- runInteractiveProcess "wpa_daemon" args' Nothing Nothing
-    hSetBinaryMode o False
-    hSetBuffering o NoBuffering
-    parseLine quiet o
+   args <- getArgs
+   let (quiet, args') = if head args == "--quiet"
+                        then (True, tail args)
+                        else (False, args)
+   (_, o, _, _) <- runInteractiveProcess "wpa_daemon" args' Nothing Nothing
+   hSetBinaryMode o False
+   hSetBuffering o NoBuffering
+   parseLine quiet o
 
 
 parseLine :: Bool -> Handle -> IO ()
 parseLine quiet o = do
-    eof <- hIsEOF o
-    if eof
-    then do
-        hPutStrLn stderr "Daemon unexpectally terminated"
-        exitFailure
-    else do
-        s <- hGetLine o
-        unless quiet (putStrLn s)
-        if desired `isInfixOf` s
-        then putStrLn "Going to background"
-        else parseLine quiet o
+   eof <- hIsEOF o
+   if eof
+   then do
+      hPutStrLn stderr "Daemon unexpectally terminated"
+      exitFailure
+   else do
+      s <- hGetLine o
+      unless quiet (putStrLn s)
+      if desired `isInfixOf` s
+      then putStrLn "Going to background"
+      else parseLine quiet o
