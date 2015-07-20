@@ -10,13 +10,14 @@ rg daemon.hs -i wlp3s0 -D nl80211 -c /etc/netm/nest/_wlan/wpa_supplicant.conf
 -}
 
 
-import Control.Monad (forever)
+import Control.Monad (forever, unless)
 import System.Environment (getArgs)
 import System.Process
 import Control.Concurrent
 import System.IO
 import System.Exit
 import System.Posix.IO
+import System.Posix.Signals
 
 import System.Log
 import System.Log.Handler
@@ -33,23 +34,26 @@ main = do
 
    -- Запуск wpa_supplicant
    args <- getArgs
-   (_, Just out, Just err, p) <- createProcess (proc "wpa_supplicant" args)
+   (_, Just out, _, p) <- createProcess (proc "wpa_supplicant" args)
       { std_out = CreatePipe
-      , std_err = CreatePipe
       , close_fds = True
       , delegate_ctlc = True
       }
 
    -- stdout
+   hSetBuffering stdout LineBuffering
+      -- Как только считана новая строка — она должна быть выведена
    forkIO $ forever $ do
       l <- hGetLine out
-      putStrLn l >> hFlush stdout
       logStr logH l
+      closed <- hIsClosed stdout
+      unless closed (putStrLn l)
 
-   -- stderr
-   forkIO $ forever $ do
-      l <- hGetLine err
-      hPutStrLn stderr l >> hFlush stderr
-      logStr logH l
-
+   installHandler sigUSR1 (CatchOnce daemonize) Nothing
    exitWith =<< waitForProcess p
+
+
+daemonize :: IO ()
+daemonize = do
+   hClose stdout
+   hClose stderr

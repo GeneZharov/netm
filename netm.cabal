@@ -95,6 +95,7 @@ executable wpa_start
   build-depends:
       base
     , process
+    , unix
 
 
 -- ===============
