@@ -23,23 +23,32 @@ desired = "CTRL-EVENT-CONNECTED"
 
 main :: IO ()
 main = do
+
    args <- getArgs
    let (quiet, args') = if head args == "--quiet"
                         then (True, tail args)
                         else (False, args)
    (_, Just out, _, p) <-
       createProcess (proc "wpa_daemon" args')
-                          { create_group  = True
-                          , delegate_ctlc = True
-                          , std_out = CreatePipe
-                          }
+                        { create_group  = True
+                        , std_out = CreatePipe
+                        }
+
+   Just pid <- getPID p
+   pid `terminateBy` [sigTERM, sigINT, sigQUIT]
+
    hSetBinaryMode out False
    hSetBuffering out NoBuffering
-   parseLine quiet p out
+   parseLine quiet pid out
 
 
-parseLine :: Bool -> ProcessHandle -> Handle -> IO ()
-parseLine quiet p out = do
+terminateBy :: PHANDLE -> [Signal] -> IO ()
+terminateBy pid = mapM_ $ \ sig -> installHandler sig handler Nothing
+   where handler = Catch (signalProcess sigTERM pid)
+
+
+parseLine :: Bool -> PHANDLE -> Handle -> IO ()
+parseLine quiet pid out = do
    eof <- hIsEOF out
    if eof
    then do
@@ -50,6 +59,6 @@ parseLine quiet p out = do
       unless quiet (putStrLn s)
       if desired `isInfixOf` s
       then do
-         signalProcess sigUSR1 =<< (fromJust `liftM` getPID p)
+         signalProcess sigUSR1 pid -- просьба демонизироваться
          putStrLn "Going to background"
-      else parseLine quiet p out
+      else parseLine quiet pid out

@@ -34,11 +34,11 @@ main = do
 
    -- Запуск wpa_supplicant
    args <- getArgs
-   (_, Just out, _, p) <- createProcess (proc "wpa_supplicant" args)
-      { std_out = CreatePipe
-      , close_fds = True
-      , delegate_ctlc = True
-      }
+   (_, Just out, _, p)
+      <- createProcess (proc "wpa_supplicant" args)
+                           { delegate_ctlc = True
+                           , std_out = CreatePipe
+                           }
 
    -- stdout
    hSetBuffering stdout LineBuffering
@@ -55,5 +55,6 @@ main = do
 
 daemonize :: IO ()
 daemonize = do
+   hClose stdin
    hClose stdout
    hClose stderr
